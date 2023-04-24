@@ -1,0 +1,7 @@
+*.wav
+
+models/
+
+config.py
+
+__pycache__
