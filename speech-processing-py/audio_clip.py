@@ -31,20 +31,17 @@ class SplitWavAudioMubin():
                 print('All splited successfully')
 
 
-"""
-# if you are having .mp3 file only
-# mp3 -> .wav
-"""
+# .mp3 -> .wav
 # sound = AudioSegment.from_mp3("/path/to/file.mp3")
 # sound.export("/output/path/file.wav", format="wav")
 
 
-folder = './test/audio/Magaret_Tarcher'  # wav files folder
-file = 'predict.wav' # .wav file
+folder = './dataset/students_ds/audio/'  # wav files folder
+file = 'data.wav' # .wav file
 split_wav = SplitWavAudioMubin(folder, file)
 split_wav.multiple_split(min_per_split=1)
 
 """
 Optional: Remove the file which is splitted
 """
-#os.remove(folder + '/' + file)
+os.remove(folder + '/' + file)

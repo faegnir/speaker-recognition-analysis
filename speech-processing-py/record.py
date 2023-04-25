@@ -7,7 +7,7 @@ chunk = 1024  # Record in chunks of 1024 samples
 sample_format = pyaudio.paInt16  # 16 bits per sample
 channels = 2
 fs = 16000  # Record at 16000 samples per second
-seconds = 3
+seconds = 180
 filename = "data.wav"
 
 p = pyaudio.PyAudio()  # Create an interface to PortAudio
