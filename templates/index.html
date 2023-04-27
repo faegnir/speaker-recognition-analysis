@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="../static/style.css" />
+    <title>Speech Prediction</title>
+  </head>
+  <body>
+    <div class="container">
+      <p class="heading">SPEECH PREDICTION</p>
+      <div class="line"></div>
+    <div>
+      <button class="btn record" style="background-color: red;">
+        <div class="icon">
+          <ion-icon name="mic-outline"></ion-icon>
+          <img src="../static/bars.svg" alt="" />
+        </div>
+        <p>Start Listening</p>
+      </button></div>
+      <p class="heading">OR</p>
+        <label class="btn">
+          <div class="icon">
+            <ion-icon name="cloud-upload-outline"></ion-icon>
+          </div>
+          <p>Upload File</p>
+          <input type="file" name="file" id="file-input" style="display:none;" accept=".wav">
+        </label>
+      <div class="line"></div>
+      <p class="smallheading" id="audioname">File: </p><!--audio file's name goes here-->
+      <div class="line"></div>
+      <div class="buttons">
+        <button class="btn clear" style="background-color:lightcoral" type="button">
+          <ion-icon name="trash-outline"></ion-icon>
+          <p>Clear</p>
+        </button>
+        <form action="/prediction" method="post">
+          <input type="text" style="display: none;" name="audio_name" id="audio_name" value="">
+        <button class="btn predict" disabled>
+            <ion-icon name="sparkles-outline"></ion-icon>
+          <p>Predict</p>
+        </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- IONICONS -->
+    <script
+      type="module"
+      src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"
+    ></script>
+    <script
+      nomodule
+      src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"
+    ></script>
+    <script src="../static/script.js"></script> 
+  </body>
+</html>
