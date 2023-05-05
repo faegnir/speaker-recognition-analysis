@@ -8,9 +8,14 @@ import plotly.io as pio
 import os
 from glob import glob
 import threading
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 import tensorflow as tf
 import pvleopard as pv
 import config
+from pydub import AudioSegment
+import math
+import shutil
 
 FRAMES_PER_BUFFER = 1024
 FORMAT = pyaudio.paInt16
@@ -99,12 +104,12 @@ def success():
     if request.method == 'POST':
         data = request.form['audio_name']
         waveform_html, spectrogram_html = generate_plots(data)
-        prediction = predict_single(data)
+        prediction,confidence,result = predict(data)
         leopard = pv.create(access_key=config.access_key)
         transcript, words = leopard.process_file(data)
 
         return render_template("prediction.html", name=data, waveform_html=waveform_html, spectrogram_html=spectrogram_html,
-                               prediction=prediction,transcript=transcript,words=len(words))
+                               prediction=prediction,confidence=confidence,result=result,transcript=transcript,words=len(words))
 
 
 def generate_plots(filename):
@@ -119,17 +124,22 @@ def generate_plots(filename):
 
     # Plot spectrogram
     D = librosa.stft(y)
-    DB = librosa.amplitude_to_db(abs(D))
+    DB = librosa.amplitude_to_db(np.abs(D), ref=np.max)
+
+    times = librosa.frames_to_time(np.arange(DB.shape[1]), sr=sr, hop_length=512)
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
+
     spectrogram_fig = go.Figure()
-    spectrogram_fig.add_trace(go.Heatmap(x=np.arange(DB.shape[1])/sr, y=np.arange(DB.shape[0]), z=DB))
+    spectrogram_fig.add_trace(go.Heatmap(x=times, y=freqs, z=DB))
     spectrogram_fig.update_layout(title="Spectrogram", xaxis_title="Time (seconds)", yaxis_title="Frequency (Hz)")
     spectrogram_html = pio.to_html(spectrogram_fig, full_html=False,default_width="380px",default_height="300px")
 
     return waveform_html, spectrogram_html
 
-class_names = config.cn
 
-model = tf.keras.models.load_model('./models/students/v1/model.h5')
+class_names = config.cn
+model = tf.keras.models.load_model('./models/students/v4/model.h5')
+
 
 def paths_to_dataset(audio_paths):
 	#Constructs a dataset of audios and labels.
@@ -137,13 +147,11 @@ def paths_to_dataset(audio_paths):
 	audio_ds = path_ds.map(lambda x: path_to_audio(x))
 	return tf.data.Dataset.zip((audio_ds))
 
-
 def path_to_audio(path):
 	#Reads and decodes an audio file.
 	audio = tf.io.read_file(path)
 	audio, _ = tf.audio.decode_wav(audio, 1, SAMPLING_RATE)
 	return audio
-
 
 def audio_to_fft(audio):
 	audio = tf.squeeze(audio, axis=-1)
@@ -153,24 +161,75 @@ def audio_to_fft(audio):
 	fft = tf.expand_dims(fft, axis=-1)
 	return tf.math.abs(fft[:, : (audio.shape[1] // 2), :])
 
-def predict_single(audio_path):
-    # Create a dataset with the single audio file
-    test_ds = paths_to_dataset([audio_path])
+
+def predict(audio_path):
+    # Split the long audio file into 1-second chunks
+    folder = './temp_folder'
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    
+    dst_path = './temp_folder/record.wav'
+    shutil.copy(audio_path, dst_path)
+
+    split_wav = SplitWavAudioMubin(folder, os.path.basename("record.wav"))
+    split_wav.multiple_split(min_per_split=1)
+    
+    # Get a list of all the split audio files
+    split_files = glob(os.path.join(folder, '*.wav'))
+
+    # Create a dataset with the split audio files
+    test_ds = paths_to_dataset(split_files)
     test_ds = test_ds.batch(BATCH_SIZE)
     test_ds = test_ds.prefetch(tf.data.experimental.AUTOTUNE)
 
+    # Predict the speaker for each split audio file
+    predictions = []
     for audio in test_ds:
         ffts = audio_to_fft(audio)
+        y_pred = model.predict(ffts)
+        y_pred_index = np.argmax(y_pred, axis=-1)
+        predictions.extend(y_pred_index)
 
-    # Get the predicted class index
-    y_pred = model.predict(ffts)
-    y_pred_index = np.argmax(y_pred, axis=-1)[0]
+    # Count the number of predictions for each speaker
+    counts = {}
+    for p in predictions:
+        speaker = class_names[p]
+        counts[speaker] = counts.get(speaker, 0) + 1
 
-    # Print the prediction
-    print("\033[31m[*]\033[0m Model's prediction:\33[92m {}\33[0m".format(class_names[y_pred_index]))
-    return class_names[y_pred_index]
+    # Get the speaker with the highest count
+    speaker = max(counts, key=counts.get)
+    confidence = counts[speaker] / len(predictions)
+    confidence = "{:.2f}".format(confidence * 100)
 
+    # Clean up temporary files
+    shutil.rmtree(folder)
+
+    return speaker, confidence + "%", "Predicted as: "
+
+class SplitWavAudioMubin():
+    def __init__(self, folder, filename):
+        self.folder = folder
+        self.filename = filename
+        self.filepath = folder + '/' + filename
+        
+        self.audio = AudioSegment.from_wav(self.filepath)
+    def get_duration(self):
+        return self.audio.duration_seconds
+    
+    def single_split(self, from_min, to_min, split_filename):
+        t1 = from_min * 1000
+        t2 = to_min * 1000
+        split_audio = self.audio[t1:t2]
+        split_audio.export(self.folder + '/' + split_filename, format="wav")
+        
+    def multiple_split(self, min_per_split):
+        total_mins = math.ceil(self.get_duration())
+        for i in range(0, total_mins, min_per_split):
+            split_fn = str(i) + '.wav'
+            self.single_split(i, i+min_per_split, split_fn)
+            print(str(i) + ' Done')
+            if i == total_mins - min_per_split:
+                print('All splited successfully')
 
 if __name__ == '__main__':
 	app.run(debug=True)
-
