@@ -31,7 +31,6 @@ def main():
 	return render_template("index.html")
 
 
-
 @app.route('/get_last_recorded_filename')
 def get_last_recorded_filename():
     file_pattern = "record*.wav" # change this to match your file naming convention
@@ -125,7 +124,6 @@ def generate_plots(filename):
     # Plot spectrogram
     D = librosa.stft(y)
     DB = librosa.amplitude_to_db(np.abs(D), ref=np.max)
-
     times = librosa.frames_to_time(np.arange(DB.shape[1]), sr=sr, hop_length=512)
     freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
 
@@ -167,16 +165,15 @@ def predict(audio_path):
     folder = './temp_folder'
     if not os.path.exists(folder):
         os.makedirs(folder)
-    
-    dst_path = './temp_folder/record.wav'
-    shutil.copy(audio_path, dst_path)
 
-    split_wav = SplitWavAudioMubin(folder, os.path.basename("record.wav"))
+    split_wav = SplitWavAudioMubin(audio_path)
     split_wav.multiple_split(min_per_split=1)
     
     # Get a list of all the split audio files
     split_files = glob(os.path.join(folder, '*.wav'))
-
+    split_files.pop(0)
+    split_files.pop()
+    print(split_files)
     # Create a dataset with the split audio files
     test_ds = paths_to_dataset(split_files)
     test_ds = test_ds.batch(BATCH_SIZE)
@@ -194,6 +191,7 @@ def predict(audio_path):
     counts = {}
     for p in predictions:
         speaker = class_names[p]
+        print(speaker)
         counts[speaker] = counts.get(speaker, 0) + 1
 
     # Get the speaker with the highest count
@@ -207,12 +205,10 @@ def predict(audio_path):
     return speaker, confidence + "%", "Predicted as: "
 
 class SplitWavAudioMubin():
-    def __init__(self, folder, filename):
-        self.folder = folder
-        self.filename = filename
-        self.filepath = folder + '/' + filename
-        
+    def __init__(self, filename):
+        self.filepath = filename
         self.audio = AudioSegment.from_wav(self.filepath)
+
     def get_duration(self):
         return self.audio.duration_seconds
     
@@ -220,7 +216,7 @@ class SplitWavAudioMubin():
         t1 = from_min * 1000
         t2 = to_min * 1000
         split_audio = self.audio[t1:t2]
-        split_audio.export(self.folder + '/' + split_filename, format="wav")
+        split_audio.export('./temp_folder/' + split_filename, format="wav")
         
     def multiple_split(self, min_per_split):
         total_mins = math.ceil(self.get_duration())

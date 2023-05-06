@@ -1,12 +1,15 @@
 const recordBtn = document.querySelector(".record");
+const btnCss = document.getElementById("rcbtn");
 const predictBtn = document.querySelector(".predict");
 const clearBtn = document.querySelector(".clear");
+
 
 const fileInput = document.getElementById('file-input');
 const fileNameDisplay = document.getElementById('audioname');
 const audioFilenameInput = document.getElementById('audio_name');
 
 let recording = false;
+let timeoutId;
 
 function ExecPythonCommand(pythonCommand){
   var request = new XMLHttpRequest()
@@ -14,14 +17,24 @@ function ExecPythonCommand(pythonCommand){
   request.send()
 }
 
-function startRecording() {
+async function startRecording() {
   ExecPythonCommand('mic_record/start');
+  recordBtn.disabled=true;
   recordBtn.classList.add("recording");
   recordBtn.querySelector("p").innerHTML = "Listening...";
   recording = true;
+  btnCss.style.backgroundColor = "#a5a5a5";
+  const timeOut = (secs) => new Promise((res) => setTimeout(res, secs * 1000));
+  await timeOut(3)
+  recordBtn.disabled=false;
+  btnCss.style.backgroundColor = "#e74135";
+  timeoutId = setTimeout(() => {
+    stopRecording();
+  }, 5000);
 }
 
 function stopRecording() {
+  clearTimeout(timeoutId);
   ExecPythonCommand('mic_record/stop');
   recordBtn.querySelector("p").innerHTML = "Start Listening";
   recordBtn.classList.remove("recording");
@@ -36,7 +49,6 @@ function stopRecording() {
           fileNameDisplay.textContent = "File: " + fileName;
           audioFilenameInput.value = fileName;
           clearInterval(checkInterval);
-
         }
       }
     };
