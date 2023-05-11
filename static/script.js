@@ -30,7 +30,7 @@ async function startRecording() {
   btnCss.style.backgroundColor = "#e74135";
   timeoutId = setTimeout(() => {
     stopRecording();
-  }, 5000);
+  }, 30000);
 }
 
 function stopRecording() {

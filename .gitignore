@@ -1,6 +1,7 @@
 *.wav
+!sample.wav
 
-models/
+*.h5
 
 config.py
 
